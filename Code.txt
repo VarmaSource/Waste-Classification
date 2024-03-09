@@ -1,0 +1,71 @@
+# Importing required libraries
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+# Define the input shape of the images
+IMG_HEIGHT = 224
+IMG_WIDTH = 224
+BATCH_SIZE = 32
+
+# Define the directories for the training and testing data
+train_dir = 'waste_data/train'
+test_dir = 'waste_data/test'
+
+# Create the data generators for the training and testing data
+train_datagen = ImageDataGenerator(rescale=1./255,
+                                   rotation_range=20,
+                                   width_shift_range=0.2,
+                                   height_shift_range=0.2,
+                                   shear_range=0.2,
+                                   zoom_range=0.2,
+                                   horizontal_flip=True,
+                                   fill_mode='nearest')
+
+test_datagen = ImageDataGenerator(rescale=1./255)
+
+train_generator = train_datagen.flow_from_directory(train_dir,
+                                                    target_size=(IMG_HEIGHT, IMG_WIDTH),
+                                                    batch_size=BATCH_SIZE,
+                                                    class_mode='categorical')
+
+test_generator = test_datagen.flow_from_directory(test_dir,
+                                                  target_size=(IMG_HEIGHT, IMG_WIDTH),
+                                                  batch_size=BATCH_SIZE,
+                                                  class_mode='categorical')
+
+# Define the CNN model architecture
+model = keras.models.Sequential([
+    keras.layers.Conv2D(32, (3,3), activation='relu', input_shape=(IMG_HEIGHT, IMG_WIDTH, 3)),
+    keras.layers.MaxPooling2D((2,2)),
+    keras.layers.Conv2D(64, (3,3), activation='relu'),
+    keras.layers.MaxPooling2D((2,2)),
+    keras.layers.Conv2D(128, (3,3), activation='relu'),
+    keras.layers.MaxPooling2D((2,2)),
+    keras.layers.Conv2D(256, (3,3), activation='relu'),
+    keras.layers.MaxPooling2D((2,2)),
+    keras.layers.Flatten(),
+    keras.layers.Dense(128, activation='relu'),
+    keras.layers.Dense(4, activation='softmax')
+])
+
+# Compile the model
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Train the model on the training data
+history = model.fit(train_generator, epochs=50, validation_data=test_generator)
+
+# Evaluate the performance of the model on the test data
+test_loss, test_acc = model.evaluate(test_generator, verbose=2)
+print('\nTest accuracy:', test_acc)
+
+# Make predictions on new images
+new_images = ['banana_peels.jpg', 'plastic_bottle.jpg', 'newspapers.jpg', 'aluminum_can.jpg']
+for image_file in new_images:
+    img = keras.preprocessing.image.load_img(image_file, target_size=(IMG_HEIGHT, IMG_WIDTH))
+    img_array = keras.preprocessing.image.img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0)
+    predictions = model.predict(img_array)
+    print(f"Prediction for {image_file}: {train_generator.class_indices.keys()[np.argmax(predictions)]}")
